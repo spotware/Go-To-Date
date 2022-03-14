@@ -62,7 +62,7 @@ namespace cAlgo
                 }
                 else if (utcTime.HasValue)
                 {
-                    Chart.ScrollXTo(utcTime.Value);
+                    GoTo(utcTime.Value);
                 }
 
                 _textBox.Text = timeStringSplit[0];
@@ -101,7 +101,7 @@ namespace cAlgo
 
             if (DateTime.TryParseExact(_textBox.Text, _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out time) == false)
             {
-                _textBox.Text = string.Format("Invalid Input: {0}", _textBox.Text);
+                _textBox.Text = string.Format("Invalid date: {0}", _textBox.Text);
 
                 return;
             }
@@ -118,7 +118,7 @@ namespace cAlgo
             }
             else if (utcTime.HasValue)
             {
-                Chart.ScrollXTo(utcTime.Value);
+                GoTo(utcTime.Value);
             }
         }
 
@@ -130,6 +130,16 @@ namespace cAlgo
             {
                 _textBox.Text = string.Format("Data not available for: {0}", _textBox.Text);
             }
+        }
+
+        private void GoTo(DateTime utcTime)
+        {
+            if (utcTime > Server.TimeInUtc)
+            {
+                _textBox.Text = string.Format("Invalid date (Future): {0}", _textBox.Text);
+            }
+
+            Chart.ScrollXTo(utcTime);
         }
 
         private DateTime? GetUtcTime(DateTime dateTime, string offsetString)
