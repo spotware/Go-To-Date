@@ -16,14 +16,25 @@ namespace cAlgo
 
         private string _chartKey;
 
-        [Parameter("Horizontal Alignment", DefaultValue = HorizontalAlignment.Left)]
+        private StackPanel _panel;
+
+        [Parameter("Horizontal Alignment", DefaultValue = HorizontalAlignment.Left, Group = "Panel")]
         public HorizontalAlignment HorizontalAlignment { get; set; }
 
-        [Parameter("Vertical Alignment", DefaultValue = VerticalAlignment.Top)]
+        [Parameter("Vertical Alignment", DefaultValue = VerticalAlignment.Top, Group = "Panel")]
         public VerticalAlignment VerticalAlignment { get; set; }
 
-        [Parameter("Opacity", DefaultValue = 1, MinValue = 0, MaxValue = 1)]
+        [Parameter("Opacity", DefaultValue = 1, MinValue = 0, MaxValue = 1, Group = "Panel")]
         public double Opacity { get; set; }
+
+        [Parameter("Active", DefaultValue = true, Group = "Hotkey")]
+        public bool IsHotkeyActive { get; set; }
+
+        [Parameter("Key", DefaultValue = Key.G, Group = "Hotkey")]
+        public Key Hotkey { get; set; }
+
+        [Parameter("Modifier Key", DefaultValue = ModifierKeys.Shift, Group = "Hotkey")]
+        public ModifierKeys HotkeyModifierKey { get; set; }
 
         protected override void Initialize()
         {
@@ -78,7 +89,7 @@ namespace cAlgo
 
             button.Click += Button_Click;
 
-            var panel = new StackPanel
+            _panel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment,
@@ -87,10 +98,22 @@ namespace cAlgo
                 Opacity = Opacity
             };
 
-            panel.AddChild(_textBox);
-            panel.AddChild(button);
+            _panel.AddChild(_textBox);
+            _panel.AddChild(button);
 
-            Chart.AddControl(panel);
+            Chart.AddControl(_panel);
+
+            if (IsHotkeyActive)
+            {
+                Chart.AddHotkey(OnHotkey, Hotkey, HotkeyModifierKey);
+
+                _panel.IsVisible = false;
+            }
+        }
+
+        private void OnHotkey()
+        {
+            _panel.IsVisible = !_panel.IsVisible;
         }
 
         private void Button_Click(ButtonClickEventArgs obj)
@@ -136,10 +159,17 @@ namespace cAlgo
             {
                 _textBox.Text = string.Format("Invalid date (Future): {0}", _textBox.Text);
             }
+            else
+            {
+                _timeCache.AddOrUpdate(_chartKey, _timeFormat, (key, value) => string.Format("{0}|1", value));
 
-            _timeCache.AddOrUpdate(_chartKey, _timeFormat, (key, value) => string.Format("{0}|1", value));
+                Chart.ScrollXTo(utcTime);
 
-            Chart.ScrollXTo(utcTime);
+                if (IsHotkeyActive)
+                {
+                    _panel.IsVisible = false;
+                }
+            }
         }
 
         private DateTime? GetUtcTime(DateTime dateTime, string offsetString)
