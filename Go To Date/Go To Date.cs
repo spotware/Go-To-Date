@@ -43,29 +43,27 @@ namespace cAlgo
 
                 var timeStringSplit = timeString.Split('|');
 
-                if (timeStringSplit.Length < 2 || DateTime.TryParseExact(timeStringSplit[0], _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out time) == false)
+                if (timeStringSplit.Length != 2 || DateTime.TryParseExact(timeStringSplit[0], _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out time) == false)
                 {
                     _textBox.Text = _timeFormat;
 
                     _timeCache.TryRemove(_chartKey, out timeString);
-
-                    return;
                 }
-
-                var utcTime = GetUtcTime(time, timeStringSplit[1]);
-
-                if (Bars[0].OpenTime > utcTime)
+                else
                 {
-                    LoadMoreBars();
+                    var utcTime = GetUtcTime(time, timeStringSplit[1]);
 
-                    return;
-                }
-                else if (utcTime.HasValue)
-                {
-                    GoTo(utcTime.Value);
-                }
+                    _textBox.Text = timeStringSplit[0];
 
-                _textBox.Text = timeStringSplit[0];
+                    if (Bars[0].OpenTime > utcTime)
+                    {
+                        LoadMoreBars();
+                    }
+                    else if (utcTime.HasValue)
+                    {
+                        GoTo(utcTime.Value);
+                    }
+                }
             }
             else
             {
@@ -138,6 +136,8 @@ namespace cAlgo
             {
                 _textBox.Text = string.Format("Invalid date (Future): {0}", _textBox.Text);
             }
+
+            _timeCache.AddOrUpdate(_chartKey, _timeFormat, (key, value) => string.Format("{0}|1", value));
 
             Chart.ScrollXTo(utcTime);
         }
