@@ -16,7 +16,9 @@ namespace cAlgo
 
         private string _chartKey;
 
-        private StackPanel _panel;
+        private StackPanel _mainPanel;
+
+        private TextBlock _errorMessageTextBlock;
 
         [Parameter("Horizontal Alignment", DefaultValue = HorizontalAlignment.Left, Group = "Panel")]
         public HorizontalAlignment HorizontalAlignment { get; set; }
@@ -43,8 +45,37 @@ namespace cAlgo
             _textBox = new TextBox
             {
                 Margin = 2,
-                MinWidth = 130
+                MinWidth = 130,
             };
+
+            var button = new Button
+            {
+                Text = "Go To",
+                Margin = 2,
+            };
+
+            button.Click += Button_Click;
+
+            var panel = new StackPanel { Orientation = Orientation.Horizontal };
+
+            panel.AddChild(_textBox);
+            panel.AddChild(button);
+
+            _mainPanel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment,
+                VerticalAlignment = VerticalAlignment,
+                Margin = 2,
+                Opacity = Opacity
+            };
+
+            _errorMessageTextBlock = new TextBlock { FontWeight = FontWeight.Bold };
+
+            _mainPanel.AddChild(panel);
+            _mainPanel.AddChild(_errorMessageTextBlock);
+
+            Chart.AddControl(_mainPanel);
 
             string timeString;
 
@@ -54,9 +85,9 @@ namespace cAlgo
 
                 var timeStringSplit = timeString.Split('|');
 
-                if (timeStringSplit.Length != 2 || DateTime.TryParseExact(timeStringSplit[0], _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out time) == false)
+                if (timeStringSplit.Length != 2 || DateTime.TryParseExact(timeStringSplit[0], _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out time) == false)
                 {
-                    _textBox.Text = _timeFormat;
+                    _textBox.Text = GetCurrentTime();
 
                     _timeCache.TryRemove(_chartKey, out timeString);
                 }
@@ -78,56 +109,34 @@ namespace cAlgo
             }
             else
             {
-                _textBox.Text = _timeFormat;
+                _textBox.Text = GetCurrentTime();
             }
-
-            var button = new Button
-            {
-                Text = "Go To",
-                Margin = 2,
-            };
-
-            button.Click += Button_Click;
-
-            _panel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment,
-                VerticalAlignment = VerticalAlignment,
-                Margin = 2,
-                Opacity = Opacity
-            };
-
-            _panel.AddChild(_textBox);
-            _panel.AddChild(button);
-
-            Chart.AddControl(_panel);
 
             if (IsHotkeyActive)
             {
                 Chart.AddHotkey(OnHotkey, Hotkey, HotkeyModifierKey);
 
-                _panel.IsVisible = false;
+                _mainPanel.IsVisible = false;
             }
         }
 
         private void OnHotkey()
         {
-            _panel.IsVisible = !_panel.IsVisible;
+            _mainPanel.IsVisible = !_mainPanel.IsVisible;
         }
 
         private void Button_Click(ButtonClickEventArgs obj)
         {
             DateTime time;
 
-            if (DateTime.TryParseExact(_textBox.Text, _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out time) == false)
+            if (DateTime.TryParseExact(_textBox.Text, _timeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out time) == false)
             {
-                _textBox.Text = string.Format("Invalid date: {0}", _textBox.Text);
+                _errorMessageTextBlock.Text = string.Format("Invalid date: {0}, please use this exact format: {1}", _textBox.Text, _timeFormat);
 
                 return;
             }
 
-            var timeString = string.Format("{0}|{1}", time.ToString(_timeFormat), Application.UserTimeOffset);
+            var timeString = string.Format("{0}|{1}", time.ToString(_timeFormat, CultureInfo.InvariantCulture), Application.UserTimeOffset);
 
             _timeCache.AddOrUpdate(_chartKey, timeString, (key, value) => timeString);
 
@@ -149,7 +158,7 @@ namespace cAlgo
 
             if (loadedBarsNumber == 0)
             {
-                _textBox.Text = string.Format("Data not available for: {0}", _textBox.Text);
+                _errorMessageTextBlock.Text = string.Format("Data not available for: {0}", _textBox.Text);
             }
         }
 
@@ -157,7 +166,7 @@ namespace cAlgo
         {
             if (utcTime > Server.TimeInUtc)
             {
-                _textBox.Text = string.Format("Invalid date (Future): {0}", _textBox.Text);
+                _errorMessageTextBlock.Text = string.Format("Invalid date (Future): {0}", _textBox.Text);
             }
             else
             {
@@ -167,7 +176,7 @@ namespace cAlgo
 
                 if (IsHotkeyActive)
                 {
-                    _panel.IsVisible = false;
+                    _mainPanel.IsVisible = false;
                 }
             }
         }
@@ -184,6 +193,13 @@ namespace cAlgo
             var dateTimeOffset = new DateTimeOffset(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, dateTime.Minute, dateTime.Second, offset);
 
             return dateTimeOffset.UtcDateTime;
+        }
+
+        private string GetCurrentTime()
+        {
+            var currentUtc = new DateTimeOffset(Server.TimeInUtc.Year, Server.TimeInUtc.Month, Server.TimeInUtc.Day, Server.TimeInUtc.Hour, Server.TimeInUtc.Minute, Server.TimeInUtc.Second, TimeSpan.FromSeconds(0));
+
+            return currentUtc.ToOffset(Application.UserTimeOffset).DateTime.ToString(_timeFormat, CultureInfo.InvariantCulture);
         }
 
         public override void Calculate(int index)
